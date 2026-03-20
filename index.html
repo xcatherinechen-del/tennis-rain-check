@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>墨尔本网球天气指数</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --yellow: #a5d135;
+        --blue: #2b59ff;
+        --text: #ffffff;
+        --card-bg: rgba(0, 0, 0, 0.5); /* 显著加深，确保文字清晰 */
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        height: 100vh;
+        font-family: "Nunito", sans-serif;
+        color: var(--text);
+        overflow: hidden;
+      }
+
+      .app {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+        position: relative;
+        /* Q版双色球场插画背景 */
+        background: linear-gradient(180deg, #78b27f 0%, #78b27f 45%, #5a8aa6 45%, #5a8aa6 100%);
+      }
+
+      /* Q版手绘感球场线条 */
+      .court-lines {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      .court-lines::before,
+      .court-lines::after {
+        content: "";
+        position: absolute;
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 999px;
+      }
+
+      /* 粗大斜线 1 */
+      .court-lines::before {
+        top: 30%;
+        left: -10%;
+        width: 120%;
+        height: 14px;
+        transform: rotate(-12deg);
+      }
+
+      /* 粗大斜线 2 */
+      .court-lines::after {
+        bottom: 20%;
+        left: -10%;
+        width: 120%;
+        height: 16px;
+        transform: rotate(8deg);
+      }
+
+      .shell {
+        width: min(980px, 100%);
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+        position: relative;
+        z-index: 2;
+      }
+
+      @media (min-width: 820px) {
+        .shell { grid-template-columns: 1fr 360px; align-items: center; }
+      }
+
+      header {
+        position: absolute;
+        top: -60px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+      }
+
+      /* 地区选择框样式 */
+      .location-dropdown {
+        appearance: none;
+        background: rgba(255, 255, 255, 0.15);
+        border: 2px solid var(--yellow);
+        border-radius: 12px;
+        color: var(--yellow);
+        font-family: inherit;
+        font-size: 1.1rem;
+        font-weight: 800;
+        padding: 4px 35px 4px 15px;
+        cursor: pointer;
+        outline: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a5d135' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 16px;
+        transition: all 0.2s;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      }
+
+      .location-dropdown:hover { background-color: rgba(255, 255, 255, 0.25); }
+      .location-dropdown option { background: #5a8aa6; color: white; }
+
+      /* 网球小人 */
+      .character-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        position: relative;
+      }
+
+      .tennis-ball {
+        width: 220px;
+        height: 220px;
+        background: var(--yellow);
+        border-radius: 50%;
+        position: relative;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+      }
+
+      /* 互不重叠的网球线条 */
+      .ball-line {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        overflow: hidden;
+      }
+
+      .ball-line::before,
+      .ball-line::after {
+        content: "";
+        position: absolute;
+        width: 160px;
+        height: 160px;
+        border: 9px solid rgba(255, 255, 255, 0.85);
+        border-radius: 50%;
+      }
+
+      .ball-line::before { left: -100px; top: 30px; }
+      .ball-line::after { right: -100px; top: 30px; }
+
+      /* 黑色四肢 */
+      .arm {
+        position: absolute;
+        width: 10px;
+        height: 70px;
+        background: #1a1a1a;
+        border-radius: 10px;
+      }
+      .arm-left { left: -35px; top: 90px; transform: rotate(-35deg); }
+      .arm-right { right: -35px; top: 90px; transform: rotate(35deg); }
+
+      /* 分数：放在小人正前下方 */
+      .score-display {
+        font-size: 90px;
+        font-weight: 900;
+        color: white;
+        text-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        margin-top: -30px;
+        z-index: 5;
+        line-height: 1;
+      }
+
+      .desc {
+        font-size: 1.3rem;
+        font-weight: 800;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        margin-top: 5px;
+      }
+
+      /* 侧边卡片优化 */
+      .side-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 40px;
+        padding: 30px;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35);
+      }
+
+      .row {
+        display: flex;
+        justify-content: space-between;
+        padding: 14px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      }
+      .row:last-child { border: none; }
+
+      .k { font-weight: 600; font-size: 1.05rem; opacity: 0.9; }
+      .v { 
+        font-weight: 900; 
+        color: var(--yellow); 
+        font-size: 1.1rem;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.6); 
+      }
+
+      button {
+        width: 100%;
+        padding: 16px;
+        border-radius: 30px;
+        border: none;
+        background: var(--yellow);
+        color: #1a1a1a;
+        font-weight: 900;
+        font-size: 1.1rem;
+        cursor: pointer;
+        margin-top: 20px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        transition: transform 0.2s;
+      }
+      button:active { transform: scale(0.96); }
+
+      .loader { text-align: center; font-weight: 800; margin-bottom: 10px; color: var(--yellow); }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="court-lines"></div>
+      
+      <div class="shell">
+        <div class="character-container">
+          <header>
+            <select id="locationSelect" class="location-dropdown">
+              <option value="Reservoir" data-lat="-37.71" data-lon="145.0" selected>Reservoir</option>
+              <option value="CBD" data-lat="-37.81" data-lon="144.96">Melbourne CBD</option>
+              <option value="Preston" data-lat="-37.74" data-lon="145.01">Preston</option>
+              <option value="Doncaster" data-lat="-37.78" data-lon="145.12">Doncaster</option>
+              <option value="Toorak" data-lat="-37.84" data-lon="145.02">Toorak</option>
+              <option value="Glen Waverley" data-lat="-37.88" data-lon="145.16">Glen Waverley</option>
+            </select>
+          </header>
+
+          <div class="tennis-ball">
+            <div class="ball-line"></div>
+            <div class="arm arm-left"></div>
+            <div class="arm arm-right"></div>
+          </div>
+          <div class="score-display" id="scoreNumber">--</div>
+          <div class="desc" id="desc">正在计算...</div>
+        </div>
+
+        <aside class="side-card">
+          <h2 style="margin-top:0; font-size: 1.4rem;">实时天气</h2>
+          <div id="loader" class="loader hidden">正在同步数据...</div>
+          <div class="rows">
+            <div class="row"><div class="k">温度</div><div class="v" id="tempText">--</div></div>
+            <div class="row"><div class="k">风速</div><div class="v" id="windText">--</div></div>
+            <div class="row"><div class="k">阵风</div><div class="v" id="gustText">--</div></div>
+            <div class="row"><div class="k">降雨</div><div class="v" id="rainText">--</div></div>
+          </div>
+          <button id="refreshBtn">刷新当前天气</button>
+          <p id="weatherText" style="font-size: 0.85rem; opacity: 0.7; margin-top: 20px; text-align: center;"></p>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+      const API_KEY = "ea559142f3ccab2e5051bbab5291334b";
+      const locationSelect = document.getElementById("locationSelect");
+
+      async function update() {
+        const loader = document.getElementById('loader');
+        loader.classList.remove('hidden');
+        
+        const selectedOption = locationSelect.options[locationSelect.selectedIndex];
+        const lat = selectedOption.getAttribute('data-lat');
+        const lon = selectedOption.getAttribute('data-lon');
+
+        try {
+          const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`);
+          const data = await res.json();
+          
+          const temp = data.main.temp;
+          const wind = data.wind.speed * 3.6;
+          const gust = (data.wind.gust || data.wind.speed) * 3.6;
+          const rain = data.rain ? (data.rain['1h'] || 0) : 0;
+
+          // 综合网球评分算法
+          let score = 10;
+          if (temp < 12 || temp > 34) score -= 3;
+          if (wind > 18) score -= 3;
+          if (wind > 30) score -= 4;
+          if (rain > 0.1) score -= 6;
+          score = Math.max(0, Math.min(10, Math.round(score)));
+
+          document.getElementById('scoreNumber').textContent = score;
+          document.getElementById('tempText').textContent = temp.toFixed(1) + '°C';
+          document.getElementById('windText').textContent = wind.toFixed(0) + ' km/h';
+          document.getElementById('gustText').textContent = gust.toFixed(0) + ' km/h';
+          document.getElementById('rainText').textContent = rain.toFixed(1) + ' mm';
+          
+          const descEl = document.getElementById('desc');
+          if (score >= 8) descEl.textContent = "Ace! 完美天气 🎾";
+          else if (score >= 5) descEl.textContent = "可以打，注意阵风 🧢";
+          else if (score >= 1) descEl.textContent = "建议改天，条件一般 ☁️";
+          else descEl.textContent = "Game Set Match. 别去了 ⛈️";
+
+          document.getElementById('weatherText').textContent = `更新时间: ${new Date().toLocaleTimeString()}`;
+        } catch (e) {
+          document.getElementById('desc').textContent = "数据获取失败";
+        } finally {
+          loader.classList.add('hidden');
+        }
+      }
+
+      locationSelect.addEventListener("change", update);
+      document.getElementById('refreshBtn').addEventListener('click', update);
+      update();
+    </script>
+  </body>
+</html>
